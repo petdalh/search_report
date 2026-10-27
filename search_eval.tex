@@ -67,8 +67,47 @@ For a trace of $d$ samples (indices $0,\dots,d-1$),
             (\mathrm{range\_closing} \le 0) \vee
             (\mathrm{target\_starboard} \le 0)\big), \nonumber
 \end{align}
-with $\theta_{\max} = 20^\circ$, $t_{\mathrm{start}} = 480$~s,
-$t_h = 300$~s and certification margin $0$. Sample $k$ is the state after
+Let $p_e, v_e$ be the ego position and velocity, $p_o, v_o$ an obstacle
+state in the reachable set, $\Delta p = p_o - p_e$, $\Delta v = v_o - v_e$,
+and $(x)^+ = \max(x,0)$. For one obstacle state the predicates are
+\begin{align*}
+  \mathrm{occupancy\_clear} &= \lVert\Delta p\rVert - r, \\
+  \mathrm{collision\_possible\_LOS} &= \Big(\big(-\Delta p^{\top}\Delta v\big)^+/\lVert\Delta p\rVert
+     \;-\; \big(\lVert\Delta p\rVert - r\big)^+/t_h\Big)\Big/a_{\max}, \\
+  \mathrm{range\_closing} &= \big(-\Delta p^{\top}\Delta v\big)\big/\big(\lVert\Delta p\rVert\,a_{\max}\big), \\
+  \mathrm{target\_starboard} &= n(\chi_0)^{\top}\Delta p\,/\,v_{\max},
+     \qquad n(\chi) = (-\sin\chi,\ \cos\chi), \\
+  \mathrm{course\_alteration} &= \big(\Delta\psi - \theta_{\mathrm{req}}(s)\big)\big/\dot\psi_{\max},
+     \qquad s = \lVert\Delta p\rVert \big/ \big(t_{\mathrm{start}}\sqrt{U_e^2 + U_o^2}\big).
+\end{align*}
+Occupancy is the clearance beyond the safety radius $r = 482.8$~m (three ship
+lengths). The collision predicate compares the line-of-sight closing speed with
+the speed that would use up the clearance within $t_h = 300$~s; it is
+$\le 0$ when no collision is possible within $t_h$ at the current closing rate.
+Range closing is the same closing speed without clamping, so
+$\le 0$ means the range is opening. Target starboard is the obstacle's offset
+to starboard of the line through the ego along its original course
+$\chi_0 = \psi - \Delta\psi$ (heading minus commanded starboard offset
+$\Delta\psi$); $\le 0$ means the obstacle is not to starboard. Course
+alteration is the surplus of the offset $\Delta\psi$ over the required
+alteration
+\[
+  \theta_{\mathrm{req}}(s) = \theta_{\max}\,
+  S\!\Big(\frac{1-s}{1-s_{\mathrm{peak}}}\Big)\,
+  S\!\Big(\frac{s-s_{\mathrm{end}}}{s_{\mathrm{hold}}-s_{\mathrm{end}}}\Big),
+  \qquad S(x) = 3x^2 - 2x^3 \text{ on } [0,1],
+\]
+which is zero beyond normalised range $s = 1$, rises to
+$\theta_{\max} = 20^\circ$ at $s_{\mathrm{peak}} = 0.8$, holds down to
+$s_{\mathrm{hold}} = 0.6$ and falls to zero at $s_{\mathrm{end}} = 0.25$
+($t_{\mathrm{start}} = 480$~s; $U_e, U_o$ are the speeds). Except occupancy
+(metres), all are scaled to seconds by $a_{\max} = 0.05$~m/s$^2$,
+$v_{\max} = 7.72$~m/s and $\dot\psi_{\max} = 1^\circ$/s. Each predicate is
+evaluated as an interval, a lower and an upper bound over all obstacle states
+in the reachable set (Section~\ref{sec:methods}); a sequence is certified if the
+lower bound of $\varphi_d$ is at least $0$.
+
+Sample $k$ is the state after
 $k+1$ actions, $40(k+1)$~s after detection. The \emph{always} operators ($\mathbf{G}$) cover
 the whole trace; the \emph{eventually} ($\mathbf{F}$) window is the last two samples, so it
 moves with the leaf and a deeper search may resolve the collision risk later
