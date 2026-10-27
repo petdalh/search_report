@@ -60,17 +60,17 @@ that time step.
 \paragraph{Specification.} The run uses \code{maneuver\_verified\_LOS\_turn}.
 For a trace of $d$ samples (indices $0,\dots,d-1$),
 \begin{align}
-  \varphi_d \;=\;& \square\,(\mathrm{occupancy\_clear} \ge 0)
-  \;\wedge\; \lozenge_{[d-2,\,d-1]}\,(\mathrm{collision\_possible\_LOS} \le 0)
+  \varphi_d \;=\;& \mathbf{G}\,(\mathrm{occupancy\_clear} \ge 0)
+  \;\wedge\; \mathbf{F}_{[d-2,\,d-1]}\,(\mathrm{collision\_possible\_LOS} \le 0)
   \label{eq:spec}\\
-  \wedge\;& \square\,\big((\mathrm{course\_alteration} \ge 0) \vee
+  \wedge\;& \mathbf{G}\,\big((\mathrm{course\_alteration} \ge 0) \vee
             (\mathrm{range\_closing} \le 0) \vee
             (\mathrm{target\_starboard} \le 0)\big), \nonumber
 \end{align}
 with $\theta_{\max} = 20^\circ$, $t_{\mathrm{start}} = 480$~s,
 $t_h = 300$~s and certification margin $0$. Sample $k$ is the state after
-$k+1$ actions, $40(k+1)$~s after detection. The \emph{always} operators cover
-the whole trace; the \emph{eventually} window is the last two samples, so it
+$k+1$ actions, $40(k+1)$~s after detection. The \emph{always} operators ($\mathbf{G}$) cover
+the whole trace; the \emph{eventually} ($\mathbf{F}$) window is the last two samples, so it
 moves with the leaf and a deeper search may resolve the collision risk later
 (Table~\ref{tab:windows}).
 
@@ -82,7 +82,7 @@ detection.}
 \small
 \begin{tabular}{@{}rrccc@{}}
 \toprule
- & & $\square$ (occupancy, turn rule) & \multicolumn{2}{c}{$\lozenge$ (collision risk resolved)} \\
+ & & $\mathbf{G}$ (occupancy, turn rule) & \multicolumn{2}{c}{$\mathbf{F}$ (collision risk resolved)} \\
 \cmidrule(lr){3-3}\cmidrule(l){4-5}
 $d$ & Lookahead (s) & samples & samples & times (s) \\
 \midrule
@@ -224,7 +224,7 @@ with a bisection fallback and production's tolerances. Results are not
 bit-identical but agree within tolerance (Section~\ref{sec:verification}).
 It is measured on top of shared geometry.
 
-\paragraph{Pruning (estimate).} The turn rule is an \emph{always}: once its
+\paragraph{Pruning (estimate).} The turn rule is an \emph{always} ($\mathbf{G}$): once its
 lower bound at one sample is below the margin, no extension can be certified,
 so a search could stop expanding that node. Pruning was not run; the time is
 scaled by the share of rollouts that lie below such nodes. No certified
