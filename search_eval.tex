@@ -39,7 +39,7 @@ to 27.3~min ($2.83\times$). Both implemented optimisations give the same
 certified sequences as production. The tree grows by a factor of about $4.8$
 per level, so these constant-factor gains amount to about two thirds of one
 depth level. After the optimisations, the ego projection is the largest
-remaining cost (47\% of the time per node).
+remaining cost (50\% of the time per node).
 \end{abstract}
 
 \tableofcontents
@@ -376,10 +376,9 @@ Two checks establish that an optimisation does not change the certificates.
 \paragraph{Whole search.} The counts of every depth (rollouts, clear,
 certified and extendable sequences) are compared state by state with
 production. They are identical for shared geometry and for shared geometry
-with compiled roots. They are also identical to the previous run of
-21 October, which shows that the per-depth formula timer did not change the
-search. The legacy optimiser certifies 10 more sequences at depth 7, in 4 of
-the 10 states.
+with compiled roots, and the separate depth-7 production run gives the same
+counts as the depth-10 run up to depth 7. The legacy optimiser certifies 10
+more sequences at depth 7, in 2 of the 10 states.
 
 \paragraph{Predicate inputs.} \code{variant\_check} records a random sample of
 predicate inputs (reachable set, projected ego state, time step) from the
@@ -402,10 +401,10 @@ Method & Samples & Differing & Lower raised & Upper lowered
 \cmidrule(l){6-7}
  & & & & & production & method \\
 \midrule
-Shared geometry & 198\,473 & 0 & 0 & 0 & 678 & 326 \\
-Shared geom.\ + compiled roots & 198\,473 & 0 & 0 & 0 & 683 & 146 \\
-Legacy optimiser (plan inputs) & 20\,000 & 2\,199 & 308 & 366 & 675 & 83\,758 \\
-Legacy optimiser (turn inputs) & 1\,444 & 1\,734 & 1\,324 & 1\,028 & 704 & 105\,812 \\
+Shared geometry & 198\,473 & 0 & 0 & 0 & 683 & 329 \\
+Shared geom.\ + compiled roots & 198\,473 & 0 & 0 & 0 & 683 & 145 \\
+Legacy optimiser (plan inputs) & 20\,000 & 2\,199 & 308 & 366 & 673 & 83\,325 \\
+Legacy optimiser (turn inputs) & 1\,444 & 1\,734 & 1\,324 & 1\,028 & 650 & 105\,205 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -487,32 +486,35 @@ so only the cost of the predicate solves varies.
 \centering
 \includegraphics[width=\linewidth]{time_breakdown.png}
 \caption{Time per rollout (one tree node) and its split into parts, over all
-depths of each run. These figures include the formula at every node.}
+depths of each run. As online, the formula is counted only at the
+depth-10 leaves; its time is spread over all nodes.}
 \label{fig:breakdown}
 \end{figure}
 
 \begin{table}[htbp]
 \centering
-\caption{Time per rollout by part, all depths, formula at every node.}
+\caption{Time per rollout by part, over all depths to 10. The formula is
+counted at the depth-10 leaves only, as an online depth-10 search evaluates it,
+and spread over all nodes.}
 \label{tab:breakdown}
 \small
 \begin{tabular}{@{}lrrr@{}}
 \toprule
 Part & Production & Shared geometry & + compiled roots \\
 \midrule
-Ego projection & 0.379 ms (24\%) & 0.373 ms (37\%) & 0.367 ms (47\%) \\
-Predicates: root finding & 0.567 ms (35\%) & 0.196 ms (19\%) & 0.004 ms (1\%) \\
-Predicates: other & 0.434 ms (27\%) & 0.219 ms (22\%) & 0.201 ms (26\%) \\
-STL formula & 0.211 ms (13\%) & 0.202 ms (20\%) & 0.191 ms (25\%) \\
+Ego projection & 0.379 ms (24\%) & 0.373 ms (39\%) & 0.367 ms (50\%) \\
+Predicates: root finding & 0.567 ms (36\%) & 0.196 ms (20\%) & 0.004 ms (1\%) \\
+Predicates: other & 0.434 ms (28\%) & 0.219 ms (23\%) & 0.201 ms (27\%) \\
+STL formula & 0.168 ms (11\%) & 0.160 ms (17\%) & 0.152 ms (21\%) \\
 Other & 0.018 ms (1\%) & 0.016 ms (2\%) & 0.015 ms (2\%) \\
 \midrule
-Total & 1.609 ms & 1.006 ms & 0.779 ms \\
+Total & 1.565 ms & 0.965 ms & 0.740 ms \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 Figure~\ref{fig:breakdown} and Table~\ref{tab:breakdown} show where the time
-of one node goes. In production, the predicates take 62\% of the node time,
+of one node goes. In production, the predicates take 64\% of the node time,
 of which root finding is the largest part. Shared geometry cuts the number of
 solves: root finding drops by about two thirds and the other predicate work
 by half. Compiled roots make root finding
@@ -522,31 +524,50 @@ The predicate-only speed-up is larger than the speed-up of the search:
 $4.7\times$ per sample for both optimisations together (Table~\ref{tab:check}),
 against $2.1\times$ per node. The difference is the ego projection and the
 formula, which the optimisations do not touch. Even with free predicates, a
-node would still cost 0.61~ms in production, so predicate work alone can give
-at most $2.65\times$. With both optimisations, the projection is the largest
-single part (47\%), followed by the remaining predicate work (26\%) and the
-formula (25\%).
+node would still cost 0.56~ms in production, so predicate work alone can give
+at most $2.8\times$. With both optimisations, the projection is the largest
+single part (50\%), followed by the remaining predicate work (27\%) and the
+formula (21\%). Per leaf, the formula costs 0.19--0.21~ms.
 
 \subsection{Comparison with the legacy implementations}
 
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\linewidth]{search_time_legacy.png}
-\caption{Search time by depth including the legacy implementations (run of
-21~October, to depth 7 for the legacy ones). In this run every node also
-evaluated the formula; the ratios between methods are comparable with
-Figure~\ref{fig:time}.}
+\caption{Search time by depth of production and the legacy implementations,
+to depth 7. Time accounted as in Figure~\ref{fig:time} (formula at the leaves
+only).}
 \label{fig:legacy}
 \end{figure}
 
-Figure~\ref{fig:legacy} adds the legacy implementations, from the run of
-21~October. That run included the formula at every node in all methods, so
-the ratios between methods are comparable, while the absolute times differ
-from Table~\ref{tab:time} by a few percent. At depth 7, production takes 42~s, the legacy optimiser 61.3~min
-($87\times$ slower) and the full legacy search 7.3~h ($620\times$ slower).
-Per node, SLSQP costs 130~ms against 1.6~ms for production. Recomputing the
-whole trace at every node adds another factor of about 7 at depth 7, a factor
-that grows with depth. The legacy optimiser is also not certificate-safe
+Figure~\ref{fig:legacy} and Table~\ref{tab:legacy} compare production with
+the legacy implementations to depth 7, with the same time accounting as
+Table~\ref{tab:time}. At depth 7, production takes 42~s, the legacy optimiser
+62.3~min ($88\times$ slower) and the full legacy search 7.5~h ($635\times$
+slower). Per node, the legacy optimiser costs 132~ms against 1.5~ms for
+production, almost all of it in SLSQP. Recomputing the whole trace at every
+node multiplies this by 4.0 at depth 4 and 7.2 at depth 7, a factor that grows
+with depth because a node at depth $d$ recomputes $d$ samples instead of one.
+
+\begin{table}[htbp]
+\centering
+\caption{Median one-core search time to depth $d$, production against the
+legacy implementations (slow-down relative to production).}
+\label{tab:legacy}
+\small
+\begin{tabular}{@{}rlll@{}}
+\toprule
+$d$ & Production & Legacy optimiser & Legacy (optimiser + full trace) \\
+\midrule
+3 & 0.12 s & 9.5 s ($77\times$) & 28 s ($225\times$) \\
+4 & 0.46 s & 41 s ($88\times$) & 2.7 min ($353\times$) \\
+5 & 2.0 s & 2.9 min ($88\times$) & 15.1 min ($454\times$) \\
+6 & 9.1 s & 13.2 min ($87\times$) & 82.7 min ($543\times$) \\
+7 & 42 s & 62.3 min ($88\times$) & 7.5 h ($635\times$) \\
+\bottomrule
+\end{tabular}
+\end{table}
+ The legacy optimiser is also not certificate-safe
 (Section~\ref{sec:verification}).
 
 \subsection{Tree size and certified sequences}
@@ -616,7 +637,7 @@ online, so deeper certificates need fewer branching levels (for example
 longer action holds at later levels), not only faster nodes.
 
 \paragraph{Where to optimise next.} After the two predicate optimisations,
-47\% of the node time is the ego projection, a 40-s closed-loop simulation of
+50\% of the node time is the ego projection, a 40-s closed-loop simulation of
 hull and autopilot. Pruning on the turn rule is the cheapest remaining gain
 (an estimated $1.34\times$ with identical certificates). Beyond that, the
 formula could be monitored incrementally instead of evaluated over the whole
@@ -651,7 +672,7 @@ rollouts per state) costs 77~min on one core with the production code.
 Sharing geometry between predicates and solving the secular equations in
 compiled code reduce this to 37~min ($2.11\times$) without changing a single
 certified sequence, and pruning on the turn rule is estimated to reach 27~min
-($2.83\times$). The legacy SLSQP optimiser was $87\times$ slower than
+($2.83\times$). The legacy SLSQP optimiser was $88\times$ slower than
 production and could raise lower bounds, which makes it unsafe for
 certification. Because the tree grows by about $4.8\times$ per level, these
 gains are worth less than one level of depth. The remaining cost is
@@ -670,8 +691,11 @@ python -m gym.eval.search.search_tree configuration/<run>.yaml \
     --variant <baseline|shared_geometry|numba_roots+shared_geometry> \
     --workers 40
 \end{verbatim}
-and then \code{python -m gym.eval.search.compare} on the three output folders.
-The accuracy check is \code{python -m gym.eval.search.variant\_check}.
+{\sloppy and then \code{python -m gym.eval.search.compare} on the three output folders.
+The legacy comparison does the same at depth 7 with the variants
+\code{legacy\_optimizer} and \code{legacy\_optimizer+legacy\_full\_trace}.
+Its job is \code{search\_compare\_legacy\_d7.slurm}, in the same folder.
+The accuracy check is \code{python -m gym.eval.search.variant\_check}.\par}
 
 \begin{center}
 \small
