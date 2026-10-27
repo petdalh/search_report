@@ -97,12 +97,48 @@ $0,\dots,d-1$) it reads
 \end{align}
 The first conjunct keeps the safety radius (482.8~m, three ship lengths) at
 every sample. The second requires the line-of-sight collision risk (time
-horizon $t_h = 300$~s) to be resolved at one of the last two samples; this is
-the window the receding search uses at each depth. The third is the turn
+horizon $t_h = 300$~s) to be resolved at one of the last two samples. The third is the turn
 rule: a starboard course offset that follows the range (up to
 $\theta_{\max} = 20^\circ$, scheduled from $t_{\mathrm{start}} = 480$~s of
 closing), excused once the range is certainly opening or the target is
 certainly not to starboard.
+
+The formula depends on the depth $d$ only through the window of the
+\emph{eventually} operator (Table~\ref{tab:windows}). Sample $k$ is the
+state after $k+1$ actions, at $40(k+1)$~s after detection. The two
+\emph{always} operators are unbounded: they cover every sample of the trace,
+$0,\dots,d-1$, so they grow with the trace and every sample must satisfy
+them. The \emph{eventually} window is $[\max(0,d-2),\,d-1]$: the last two
+samples, or the only sample at $d=1$. It moves with the leaf, so the risk must
+be resolved by the end of the plan, not at a fixed time; at a deeper $d$ the
+search may therefore resolve it later. This is the window the receding search
+uses at each depth.
+
+\begin{table}[htbp]
+\centering
+\caption{Sample windows of $\varphi_d$ by depth. Indices are trace samples;
+times are seconds after detection.}
+\label{tab:windows}
+\small
+\begin{tabular}{@{}rrccc@{}}
+\toprule
+ & & $\square$ (occupancy, turn rule) & \multicolumn{2}{c}{$\lozenge$ (collision risk resolved)} \\
+\cmidrule(lr){3-3}\cmidrule(l){4-5}
+$d$ & Lookahead (s) & samples & samples & times (s) \\
+\midrule
+1 & 40 & $0$ & $\{0\}$ & 40 \\
+2 & 80 & $0,\dots,1$ & $[0,1]$ & 40, 80 \\
+3 & 120 & $0,\dots,2$ & $[1,2]$ & 80, 120 \\
+4 & 160 & $0,\dots,3$ & $[2,3]$ & 120, 160 \\
+5 & 200 & $0,\dots,4$ & $[3,4]$ & 160, 200 \\
+6 & 240 & $0,\dots,5$ & $[4,5]$ & 200, 240 \\
+7 & 280 & $0,\dots,6$ & $[5,6]$ & 240, 280 \\
+8 & 320 & $0,\dots,7$ & $[6,7]$ & 280, 320 \\
+9 & 360 & $0,\dots,8$ & $[7,8]$ & 320, 360 \\
+10 & 400 & $0,\dots,9$ & $[8,9]$ & 360, 400 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 Each predicate is evaluated with interval semantics over the reachable set:
 it returns a lower and an upper bound over all obstacle states in the set. A
