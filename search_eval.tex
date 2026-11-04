@@ -60,8 +60,7 @@ specification uses five:
 \end{itemize}
 All except occupancy are scaled to seconds so that they can be compared.
 
-\paragraph{Specification.} The run uses \code{maneuver\_verified\_LOS\_turn}.
-For a trace of $d$ samples (indices $0,\dots,d-1$),
+\paragraph{Specification.} For a trace of $d$ samples (indices $0,\dots,d-1$),
 \begin{align*}
   \varphi_d \;=\;& \mathbf{G}\,(\mathrm{occupancy\_clear} \ge 0)
   \;\wedge\; \mathbf{F}_{[d-2,\,d-1]}\,(\mathrm{collision\_possible\_LOS} \le 0)\\
@@ -140,7 +139,7 @@ certified sequences.
 point of a 2-D projection of the reachable ellipsoid to some point, e.g.\ the
 minimum distance from the ego to any obstacle position. This has a closed form
 up to one scalar root (the \emph{secular equation}), which production finds
-with \code{scipy.optimize.brentq} in Python. Each predicate solves its own
+with Brent's method in Python. Each predicate solves its own
 problems.
 
 \paragraph{Shared geometry.} Several predicates ask the same question: four
@@ -152,7 +151,7 @@ bit-identical.
 \paragraph{Compiled roots.} On top of shared geometry, the secular equation is
 solved in compiled code (numba) with Newton's method and a bisection fallback,
 using the same tolerances. This avoids the roughly ten Python interpreter calls
-per root that \code{brentq} makes. The results agree with production within tolerance.
+per root that Brent's method makes. The results agree with production within tolerance.
 
 \paragraph{Pruning (estimate).} The turn rule is an \emph{always}
 ($\mathbf{G}$): once it fails at one sample, no longer sequence through that
@@ -160,8 +159,7 @@ node can be certified, so the search can stop expanding it. This was not run.
 Its time is estimated by removing the share of rollouts that lie below such
 nodes (about 25\%).
 
-\paragraph{Earlier version.} Before 26 September 2026, the bounds were
-computed with SLSQP over the full 6-D ellipsoid, and every node recomputed the
+\paragraph{Legacy method.} The legacy method computed the bounds with SLSQP over the full 6-D ellipsoid, and every node recomputed the
 whole trace. It was $88\times$ slower than production at depth 7, and because
 SLSQP is a local optimiser it sometimes overestimated lower bounds, which can
 certify unsafe sequences.
@@ -171,8 +169,8 @@ certify unsafe sequences.
 %======================================================================
 
 The search was run to depth 10 from ten detection states of a give-way
-crossing (obstacle 6--10~km away), using the \code{mariner\_40\_b02\_20sets}
-reachable tube. Times are one-core totals for an exhaustive depth-$d$ search,
+crossing (obstacle 6--10~km away), using a
+reachable tube with one ellipsoid per 40~s. Times are one-core totals for an exhaustive depth-$d$ search,
 median over the states. The states agree within $\pm 3\%$.
 
 \begin{figure}[htbp]
