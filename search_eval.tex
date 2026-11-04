@@ -213,6 +213,48 @@ search depth 9. After the optimisations, the ego rollout is half of the node
 time, so reaching depth 10 requires less branching (for example longer holds
 at later levels), not only faster nodes.
 
+\paragraph{Cost per predicate.} Table~\ref{tab:predicates} times each
+predicate on the same 824 predicate inputs, recorded from the searches at the
+ten detection states (each timed 20 times). ``In order'' is the predicate's
+share of a full sample, computed in the order listed; with shared geometry, a
+solve that several predicates need is paid by the first to ask. ``Alone'' is
+the predicate computed without the others.
+
+\begin{table}[htbp]
+\centering
+\caption{Time per predicate sample ($\mu$s), median over the ten states. In
+production the in-order and alone times are the same within 5\%.}
+\label{tab:predicates}
+\small
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+ & Production & \multicolumn{2}{c}{+ shared geometry} & \multicolumn{2}{c}{+ compiled roots} \\
+\cmidrule(lr){3-4}\cmidrule(l){5-6}
+Predicate & & in order & alone & in order & alone \\
+\midrule
+occupancy\_clear         & 160 & 162 & 158 & 57 & 53 \\
+collision\_possible\_LOS & 287 & 129 & 279 & 60 & 105 \\
+course\_alteration       & 182 & 30  & 184 & 30 & 79 \\
+target\_starboard        & 22  & 21  & 17  & 21 & 17 \\
+range\_closing           & 196 & 11  & 181 & 11 & 74 \\
+\midrule
+Full sample              & 851 & \multicolumn{2}{c}{359} & \multicolumn{2}{c}{183} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+In production the collision predicate is the most expensive (a third of the
+sample): it needs the minimum and maximum distance and the closing-rate
+bounds. Occupancy, course alteration and range closing each need the distance
+bounds too and cost 160--200~$\mu$s; target starboard is a linear bound in
+closed form and costs almost nothing. Shared geometry does not make any
+predicate cheaper on its own, but once occupancy and the collision predicate
+have solved the distance and closing-rate problems, course alteration and
+range closing reuse them almost for free. Compiled roots then make every
+predicate that needs a root about $2.5$--$3\times$ cheaper. Per sample the
+predicates become $4.7\times$ faster, but per search node only $2.1\times$,
+because the rollout and the formula are unchanged.
+
 \paragraph{Limitations.} Only the detection state of one crossing was
 evaluated, where the tree is largest. The receding mask stops at the first
 certified leaf per first action, so these times are an upper bound for it.
