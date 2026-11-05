@@ -16,7 +16,7 @@
 
 \title{Cost of the Certified Action Search by Depth}
 \author{} % add author
-\date{4 November 2026}
+\date{5 November 2026}
 
 \begin{document}
 \maketitle
@@ -25,7 +25,8 @@
 of actions starting with it, i.e.\ show that the sequence satisfies a COLREG
 manoeuvre specification for every possible future of the obstacle. This note
 explains what is checked, how the search works, which faster versions of it
-were compared, and how its cost grows with depth.
+were compared, how its cost grows with depth, and how much a cheaper ego
+projection saves.
 
 %======================================================================
 \section{Reachable sets, predicates and specification}
@@ -254,6 +255,102 @@ range closing reuse them almost for free. Compiled roots then make every
 predicate that needs a root about $2.3$--$3\times$ cheaper. Per sample the
 predicates become $4.7\times$ faster, but per search node only $2.1\times$,
 because the rollout and the formula are unchanged.
+
+%======================================================================
+\section{Faster ego projection}
+%======================================================================
+
+With shared geometry and compiled roots, half of the node time is the ego
+projection: the Mariner closed loop (reference model, PID autopilot, rudder
+servo and hull) integrated with RK4 at 0.05~s, 800 steps per 40~s action.
+Cheaper projections were tested in its place:
+
+\begin{itemize}
+\item \textbf{Simplified hulls}: linear surge--sway--yaw, constant-speed
+linear sway--yaw and first-order Nomoto, each in the same closed loop.
+\item \textbf{Learned transitions}: networks that predict the change over one
+action in surge, sway, yaw rate, rudder, autopilot states, heading and
+position. FF one-step is a feed-forward net trained on single transitions; FF
+open-loop is the same net fine-tuned on 10-step rollouts that feed in its own
+predictions; GRU is a recurrent net trained the same way.
+\item \textbf{Lookup table}: the exact Mariner tree to depth 10 (12.2~M nodes,
+293~MB), computed once from one steady detection state. A search from another
+state looks each node up by its action path and places it relative to its own
+start and goal bearing.
+\item \textbf{Table + correction}: the lookup table plus a small network that
+predicts how far the true trajectory drifts from the table's, because the
+actual start differs slightly from the reference start (heading against the
+goal bearing, autopilot state, goal distance). The drift is carried from node
+to node along the path.
+\end{itemize}
+
+\noindent The networks were trained on 300\,000 Mariner rollouts of 10
+actions from 150 detection states. Besides uniform tree paths, the data include
+prolonged turns, reversals and saturated turns. All models are tested open
+loop: started once from the true state, then fed their own predictions for all
+10 actions. The test uses 20\,000 sequences from the ten evaluation states, and
+all errors are against the Mariner.
+
+\begin{table}[htbp]
+\centering
+\caption{Ego projections: speed-up of the depth-10 search (on top of shared
+geometry and compiled roots, against the Mariner on the same node), position
+error (mean $\pm$ std, and maximum at depth 10), and depth-10 certificates kept
+with a calibrated error margin.}
+\label{tab:projection}
+\small
+\begin{tabular}{@{}lrrrrrr@{}}
+\toprule
+ & & \multicolumn{4}{c}{Position error (m)} & Certificates \\
+\cmidrule(lr){3-6}
+Projection & Speed-up & $d=1$ & $d=5$ & $d=10$ & max & with margin \\
+\midrule
+Mariner                  & $1\times$    & -- & -- & -- & -- & 100\% \\
+Linear (both variants)   & $1.25\times$ & $2.1 \pm 1.5$ & $71 \pm 29$ & $186 \pm 63$ & 407 & 0\% \\
+Nomoto                   & $1.26\times$ & $10.4 \pm 5.9$ & $100 \pm 46$ & $210 \pm 72$ & 409 & 0\% \\
+FF one-step              & $1.38\times$ & $0.04 \pm 0.02$ & $0.80 \pm 0.64$ & $2.4 \pm 2.5$ & 92 & 67\% \\
+FF open-loop             & $1.39\times$ & $0.04 \pm 0.02$ & $0.42 \pm 0.37$ & $1.4 \pm 1.6$ & 34 & 73\% \\
+GRU                      & $1.28\times$ & $0.25 \pm 0.20$ & $1.02 \pm 0.88$ & $3.4 \pm 3.7$ & 59 & 0\% \\
+Lookup table             & $1.74\times$ & $0.08 \pm 0.02$ & $0.32 \pm 0.24$ & $2.8 \pm 2.3$ & 14 & 93\% \\
+Table + correction       & $1.48\times$ & $0.013 \pm 0.007$ & $0.031 \pm 0.022$ & $0.10 \pm 0.12$ & 2.5 & 96\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Error margin.} A model's errors are covered by an ego-uncertainty
+margin on the predicates. The margin is a velocity bound $v$, so position
+error is at most $v t$, plus a heading bound. Each model's margin is calibrated
+as the largest error seen on 20 other detection states. With its margin, no
+model gave a false certificate at depth 10, except FF one-step and FF
+open-loop with one each. The certificate column of Table~\ref{tab:projection}
+is the share of the Mariner's 12\,679 depth-10 certificates kept with the
+margin. Because the margin must cover the worst case, a model's tail error
+decides how many certificates it keeps. The table + correction margin is
+0.077~m/s and $0.9^\circ$; the table's is 0.137~m/s and $1.5^\circ$; for FF
+open-loop it is 0.59~m/s and $6.4^\circ$. For the linear models, Nomoto and the
+GRU the margin is so large that nothing is certified. Almost all the
+certificates the two table variants lose are lost by the Mariner itself under
+the same margin. These are sequences with essentially no robustness to spare:
+after a straight action the Mariner's heading changes by about
+$-10^{-4}$~degrees, so ``course alteration $\geq 0$'' fails by a hair.
+Without a margin, any small model error flips such sequences. A search with an
+approximate projection therefore needs either its calibrated margin or a
+small positive certification margin.
+
+\paragraph{Findings.} The simplified hulls are not useful: about 190~m error
+at depth 10 for a $1.25\times$ speed-up, because the closed loop around the
+hull stays expensive. Of the networks, open-loop training halves the
+feed-forward error; the GRU is worse on every measure. The lookup table is
+the fastest projection ($1.74\times$; 0.05~ms per rollout against 0.37~ms),
+because a node costs one array read. The table has no compounding error: each
+node is an exact Mariner state, and its only error comes from reusing the tree
+from a slightly different start. The correction network removes most of that
+error, giving $28\times$ lower mean error and $5.6\times$ lower maximum. It
+costs one small network evaluation per node, so its speed-up is $1.48\times$
+(estimated $1.68\times$ with pruning). With either table variant the
+projection is only 12--19\% of node time, and the predicates and the formula
+set the limit. Both tables are valid only for searches that start from steady
+straight running, as at detection.
 
 \paragraph{Limitations.} Only the detection state of one crossing was
 evaluated, where the tree is largest. The receding mask stops at the first
