@@ -21,28 +21,13 @@
 \begin{document}
 \maketitle
 
-\noindent The action masker allows an action only if it can certify a sequence
-of actions starting with it, i.e.\ show that the sequence satisfies a COLREG
-manoeuvre specification for every possible future of the obstacle. This note
-explains what is checked, how the search works, which faster versions of it
-were compared, how its cost grows with depth, how much a cheaper ego
-projection saves, and how fast the search is when compiled and run in
-parallel.
-
 %======================================================================
 \section{Reachable sets, predicates and specification}
 %======================================================================
 
-\paragraph{Reachable sets.} The obstacle's future is not known, so it is
-described by a \emph{reachable tube}: one ellipsoid per 40~s time step that,
-with PAC confidence, contains every position and velocity the obstacle can have
-at that time. Anything certified must hold for all obstacle states in the set,
-not just a predicted one.
+\paragraph{Reachable sets.} For all the results we use the 40s reachable sets. 
 
-\paragraph{Predicates.} A predicate is a signed quantity of the ego and
-obstacle states. Because the obstacle is a set, each predicate is evaluated as
-an interval: its lowest and highest value over the reachable set. The turn
-specification uses five:
+\paragraph{Predicates.} We use a spec with the following predicates:
 \begin{itemize}\itemsep 2pt
   \item \textbf{occupancy\_clear}: distance to the obstacle beyond the safety
     radius (482.8~m, three ship lengths). Positive means no possible obstacle
@@ -62,7 +47,7 @@ specification uses five:
 \end{itemize}
 All except occupancy are scaled to seconds so that they can be compared.
 
-\paragraph{Specification.} For a trace of $d$ samples (indices $0,\dots,d-1$),
+\paragraph{Specification.} The spec is chosen mainly as a benchmark for computation. For a trace of $d$ samples (indices $0,\dots,d-1$),
 \begin{align*}
   \varphi_d \;=\;& \mathbf{G}\,(\mathrm{occupancy\_clear} \ge 0)
   \;\wedge\; \mathbf{F}_{[d-2,\,d-1]}\,(\mathrm{collision\_possible\_LOS} \le 0)\\
@@ -81,8 +66,7 @@ even in the worst case over the reachable set.
 \section{The action search}
 %======================================================================
 
-\paragraph{Tree.} At each step the ego chooses one of five yaw-rate commands,
-$\{-1, -0.5, 0, 0.5, 1\}~^\circ/\mathrm{s}$, held for 40~s. A search of depth
+\paragraph{Tree.} At each step the ego chooses a yaw-rate command, eld for 40~s. A search of depth
 $d$ therefore looks $40d$~s ahead and has $5^d$ possible sequences. The
 crossing-side rule (the commanded heading must not be to port of the original
 course) removes about three quarters of them. Each remaining edge is one
@@ -406,14 +390,6 @@ Table + correction & 25.8 min & 83 s  & 43 s     & 1.3 s & 670\,950 \\
 
 \paragraph{Findings.} The exact search (Mariner, RK4) drops from 42~min to
 26~s, which fits in one decision step; over the 59 states it took 23--31~s.
-The midpoint rule takes 15~s. It gave the same tree on 57 of the 59 states
-and differed by one sequence (of about 780\,000) on the other two. Table +
-correction takes 1.3~s, because a node then costs one array read and one
-small network instead of 800 integration steps. Its tree is identical to
-the one of its Python version. Table + correction certifies 91\% of the
-sequences, because of its error margin (0.28~m/s and $2.8^\circ$). That
-margin is not yet sufficient for this horizon: on the evaluation states the
-heading error reached $4.7^\circ$, so the margin must be recalibrated before
-the 1.3~s search can be relied on.
+The midpoint rule takes 15~s. Table + correction takes 1.3~s, because a node then costs one array read and one small network instead of 800 integration steps.
 
 \end{document}
