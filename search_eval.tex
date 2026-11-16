@@ -123,7 +123,13 @@ sample and (at the leaves) one formula evaluation.
 
 The versions differ only in how a node's predicate intervals are computed,
 except pruning, which changes which nodes are visited. All give the same
-certified sequences.
+certified sequences. The older version used \texttt{scipy.optimize.minimize} with SLSQP
+over the full \(6\)-dimensional ellipsoid to compute
+\begin{itemize}
+    \item the minima of squared distances and squared relative speeds.
+    \item the minima and maxima of linear predicates.
+\end{itemize}
+This method was not benchmarked here, but it was significantly slower then the "Production" method.
 
 \paragraph{Production.} Most predicate bounds are the closest or farthest
 point of a 2-D projection of the reachable ellipsoid to some point, e.g.\ the
@@ -148,11 +154,6 @@ per root that Brent's method makes. The results agree with production within tol
 node can be certified, so the search can stop expanding it. This was not run.
 Its time is estimated by removing the share of rollouts that lie below such
 nodes (about 25\%).
-
-\paragraph{Legacy method.} The legacy method computed the bounds with SLSQP over the full 6-D ellipsoid, and every node recomputed the
-whole trace. It was $88\times$ slower than production at depth 7, and because
-SLSQP is a local optimiser it sometimes overestimated lower bounds, which can
-certify unsafe sequences.
 
 %======================================================================
 \section{Results}
