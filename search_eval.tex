@@ -66,7 +66,7 @@ even in the worst case over the reachable set.
 \section{The action search}
 %======================================================================
 
-\paragraph{Tree.} At each step the ego chooses a yaw-rate command, eld for 40~s. A search of depth
+\paragraph{Tree.} At each step the ego chooses a yaw-rate command, held for 40~s. A search of depth
 $d$ therefore looks $40d$~s ahead and has $5^d$ possible sequences. The
 crossing-side rule (the commanded heading must not be to port of the original
 course) removes about three quarters of them. Each remaining edge is one
@@ -83,26 +83,30 @@ time to resolve the collision risk (Table~\ref{tab:windows}).
 
 \begin{table}[htbp]
 \centering
-\caption{Sample windows of $\varphi_d$ by depth. Times are seconds after
-detection.}
+\caption{Sample windows of the 800~s schedule tree by level. Each level holds
+one action; sample $k$ is the state $40(k+1)$~s after detection. A sequence is
+checked at every sample and cut at the first sample where a $\mathbf{G}$
+conjunct fails. Resolved: $\mathrm{collision\_possible\_LOS} \le 0$. Clear:
+astern of the target or the target to port, and no collision risk within
+600~s.}
 \label{tab:windows}
 \small
-\begin{tabular}{@{}rrccc@{}}
+\begin{tabular}{@{}rrrccc@{}}
 \toprule
- & & $\mathbf{G}$ (occupancy, turn rule) & \multicolumn{2}{c}{$\mathbf{F}$ (collision risk resolved)} \\
-\cmidrule(lr){3-3}\cmidrule(l){4-5}
-$d$ & Lookahead (s) & samples & samples & times (s) \\
+ & & & & \multicolumn{2}{c}{Checked up to this level (samples)} \\
+\cmidrule(l){5-6}
+Level & Hold (s) & Ends at (s) & New samples & $\mathbf{G}$ (occupancy, turn rule) & $\mathbf{G}$ (resolved, clear) \\
 \midrule
-1 & 40 & $0$ & $\{0\}$ & 40 \\
-2 & 80 & $0,\dots,1$ & $[0,1]$ & 40, 80 \\
-3 & 120 & $0,\dots,2$ & $[1,2]$ & 80, 120 \\
-4 & 160 & $0,\dots,3$ & $[2,3]$ & 120, 160 \\
-5 & 200 & $0,\dots,4$ & $[3,4]$ & 160, 200 \\
-6 & 240 & $0,\dots,5$ & $[4,5]$ & 200, 240 \\
-7 & 280 & $0,\dots,6$ & $[5,6]$ & 240, 280 \\
-8 & 320 & $0,\dots,7$ & $[6,7]$ & 280, 320 \\
-9 & 360 & $0,\dots,8$ & $[7,8]$ & 320, 360 \\
-10 & 400 & $0,\dots,9$ & $[8,9]$ & 360, 400 \\
+1  & 40  & 40  & $0$              & $0$              & -- \\
+2  & 40  & 80  & $1$              & $0,\dots,1$      & -- \\
+3  & 40  & 120 & $2$              & $0,\dots,2$      & -- \\
+4  & 40  & 160 & $3$              & $0,\dots,3$      & -- \\
+5  & 80  & 240 & $4,5$            & $0,\dots,5$      & -- \\
+6  & 80  & 320 & $6,7$            & $0,\dots,7$      & -- \\
+7  & 80  & 400 & $8,9$            & $0,\dots,9$      & -- \\
+8  & 120 & 520 & $10,\dots,12$    & $0,\dots,12$     & -- \\
+9  & 120 & 640 & $13,\dots,15$    & $0,\dots,15$     & $14,15$ (600, 640~s) \\
+10 & 160 & 800 & $16,\dots,19$    & $0,\dots,19$     & $14,\dots,19$ (600--800~s) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -391,5 +395,54 @@ Table + correction & 25.8 min & 83 s  & 43 s     & 1.3 s & 670\,950 \\
 \paragraph{Findings.} The exact search (Mariner, RK4) drops from 42~min to
 26~s, which fits in one decision step; over the 59 states it took 23--31~s.
 The midpoint rule takes 15~s. Table + correction takes 1.3~s, because a node then costs one array read and one small network instead of 800 integration steps.
+
+\paragraph{Soundness of the table search.} A certified sequence must be safe
+under the real ship model. The table search is sound if every sequence it
+certifies is also certified by the exact search. A sequence it certifies that
+the exact search does not is a \emph{false certificate}. It was tested on
+100 new detection states, none used for
+calibration. At each state the exact tree (286\,000--745\,000 certified
+sequences) was compared sequence by sequence with the table tree, built with
+the calibrated margin (0.006~m/s, $0.05^\circ$) scaled by 0 to 4.
+
+\begin{table}[htbp]
+\centering
+\caption{Table + correction search against the exact search at 100 detection
+states (800~s tree). Margin: multiple of the calibrated margin (0.006~m/s,
+$0.05^\circ$). Kept: share of the exact search's 64.1~M certified sequences
+that the table search also certifies. No plan: states where the table search
+certifies nothing, although the exact search does.}
+\label{tab:soundness}
+\small
+\begin{tabular}{@{}rrrrr@{}}
+\toprule
+Margin & States with false & False & Kept & No plan \\
+       & certificates      & certificates & & \\
+\midrule
+0    & 66 & 3\,406\,206 & 100\%  & 0 \\
+0.5  & 0  & 0           & 99.8\% & 0 \\
+1    & 0  & 0           & 99.7\% & 0 \\
+2    & 0  & 0           & 99.4\% & 0 \\
+3    & 0  & 0           & 99.1\% & 0 \\
+4    & 0  & 0           & 98.7\% & 0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Time to build the 800~s tree at the 100 detection states of
+Table~\ref{tab:soundness}, compiled search on 40 threads.}
+\label{tab:soundness_time}
+\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Projection & Min & Median & Mean & Max \\
+\midrule
+Mariner, RK4                        & 8.4~s  & 19.9~s & 20.4~s & 45.3~s \\
+Table + correction, margin $1\times$ & 0.47~s & 1.10~s & 1.15~s & 2.63~s \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \end{document}
